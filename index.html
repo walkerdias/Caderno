@@ -88,6 +88,14 @@
                 <form id="situacaoForm">
                     <div class="form-row">
                         <div class="form-group">
+                            <label for="cnpjEmpresa">Selecionar Empresa:</label>
+                            <select id="cnpjEmpresa" required>
+                                <option value="">Selecione uma empresa...</option>
+                            </select>
+                        </div>
+                    </div>
+					<div class="form-row">                        
+						<div class="form-group">
                             <label for="dataSituacao">Data da Situação:</label>
                             <input type="date" id="dataSituacao" required>
                         </div>
@@ -125,16 +133,7 @@
                             <textarea id="endereco" rows="3" required></textarea>
                         </div>
                     </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="cnpjEmpresa">Selecionar Empresa:</label>
-                            <select id="cnpjEmpresa" required>
-                                <option value="">Selecione uma empresa...</option>
-                            </select>
-                        </div>
-                    </div>
-                    
+                                                          
                     <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Registrar Situação</button>
                     <button type="button" class="btn-secondary" id="limparSituacao"><i class="fas fa-broom"></i> Limpar</button>
                 </form>
