@@ -20,6 +20,40 @@ function initParametrizacao() {
     }
 }
 
+// ========== FUNÇÃO DE EXPORTAÇÃO DA PARAMETRIZAÇÃO ==========
+function exportarParametrizacao() {
+    const dados = {
+        parametrizacao: {
+            faixasSimples: JSON.parse(localStorage.getItem('paramFaixasSimples')),
+            configPresumido: JSON.parse(localStorage.getItem('paramConfigPresumido')),
+            configReal: JSON.parse(localStorage.getItem('paramConfigReal')),
+            historicoParam: JSON.parse(localStorage.getItem('paramHistorico'))
+        },
+        dataExportacao: new Date().toISOString(),
+        versao: '2.0',
+        tipo: 'apenas-parametrizacao'
+    };
+    
+    const dadosJSON = JSON.stringify(dados, null, 2);
+    const blob = new Blob([dadosJSON], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `parametrizacao-vendas-impostos-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    const mensagem = `Parametrização exportada com sucesso!\n` +
+        `• ${dados.parametrizacao.faixasSimples.length} faixa(s) do Simples\n` +
+        `• ${dados.parametrizacao.configPresumido.length} configuração(ões) do Presumido\n` +
+        `• ${dados.parametrizacao.configReal.length} configuração(ões) do Real`;
+    
+    mostrarMensagem(mensagem);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Verificar se estamos online
     updateOnlineStatus();
@@ -69,6 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('exportarDados').addEventListener('click', exportarDados);
     document.getElementById('importarDados').addEventListener('click', importarDados);
     document.getElementById('limparTudo').addEventListener('click', confirmarLimpezaDados);
+	document.getElementById('exportarParametrizacao').addEventListener('click', exportarParametrizacao);
     
     // Configurar modal
     document.getElementById('modalCancel').addEventListener('click', fecharModal);
@@ -105,51 +140,6 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarConfigsPresumido();
     carregarConfigsReal();
     carregarHistoricoParam();
-
-	// Adicionar botão de exportação de parametrização
-    const exportParamBtn = document.createElement('button');
-    exportParamBtn.className = 'btn-secondary';
-    exportParamBtn.innerHTML = '<i class="fas fa-cogs"></i> Exportar Parametrização';
-    exportParamBtn.id = 'exportarParametrizacao';
-    exportParamBtn.onclick = exportarParametrizacao;
-    
-    // Adicionar ao footer (ou onde preferir)
-    const footer = document.querySelector('footer');
-    footer.insertBefore(exportParamBtn, footer.querySelector('#limparTudo'));
-    
-    // Adicionar função
-    window.exportarParametrizacao = function() {
-        const dados = {
-            parametrizacao: {
-                faixasSimples: JSON.parse(localStorage.getItem('paramFaixasSimples')),
-                configPresumido: JSON.parse(localStorage.getItem('paramConfigPresumido')),
-                configReal: JSON.parse(localStorage.getItem('paramConfigReal')),
-                historicoParam: JSON.parse(localStorage.getItem('paramHistorico'))
-            },
-            dataExportacao: new Date().toISOString(),
-            versao: '2.0',
-            tipo: 'apenas-parametrizacao'
-        };
-        
-        const dadosJSON = JSON.stringify(dados, null, 2);
-        const blob = new Blob([dadosJSON], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `parametrizacao-vendas-impostos-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        const mensagem = `Parametrização exportada com sucesso!\n` +
-            `• ${dados.parametrizacao.faixasSimples.length} faixa(s) do Simples\n` +
-            `• ${dados.parametrizacao.configPresumido.length} configuração(ões) do Presumido\n` +
-            `• ${dados.parametrizacao.configReal.length} configuração(ões) do Real`;
-        
-        mostrarMensagem(mensagem);
-    };
 });
 
 // Inicializar armazenamento de dados
