@@ -450,7 +450,7 @@ function excluirCliente(cnpj) {
     });
 }
 
-// ========== GERENCIAMENTO DE SITUAÇÕES ==========
+// ========== GERENCIAMENTO DE SITUAÇÕES - VERSÃO CORRIGIDA ==========
 function salvarSituacao(e) {
     e.preventDefault();
     
@@ -481,66 +481,108 @@ function salvarSituacao(e) {
         return;
     }
     
+    // VALIDAÇÃO IMPORTANTE: Data da situação não pode ser anterior à data de abertura
+    const clientes = JSON.parse(localStorage.getItem('clientes'));
+    const empresa = clientes.find(c => c.cnpj === cnpjEmpresa);
+    
+    if (empresa) {
+        const dataAbertura = new Date(empresa.dataAbertura);
+        const dataSituacaoObj = new Date(dataSituacao);
+        
+        // Resetar horas para comparar apenas datas
+        dataAbertura.setHours(0, 0, 0, 0);
+        dataSituacaoObj.setHours(0, 0, 0, 0);
+        
+        if (dataSituacaoObj < dataAbertura) {
+            mostrarModal('Erro de Validação', 
+                `A data da situação (${formatarData(dataSituacao)}) não pode ser anterior à data de abertura da empresa (${formatarData(empresa.dataAbertura)}).`);
+            document.getElementById('dataSituacao').focus();
+            return;
+        }
+        
+        // VALIDAÇÃO: Data da situação não pode ser no futuro (opcional)
+//        const hoje = new Date();
+//        hoje.setHours(0, 0, 0, 0);
+//        
+//        if (dataSituacaoObj > hoje) {
+//            mostrarModal('Erro de Validação', 
+//                `A data da situação (${formatarData(dataSituacao)}) não pode ser no futuro.`);
+//            document.getElementById('dataSituacao').focus();
+//            return;
+//        }
+    }
+    
     if (tributacao === 'simples' && !anexoSimples) {
         mostrarModal('Erro', 'Para o Simples Nacional, é obrigatório selecionar o anexo.');
         document.getElementById('anexoSimples').focus();
         return;
     }
     
-    // Buscar nome da empresa
-    const clientes = JSON.parse(localStorage.getItem('clientes'));
-    const empresa = clientes.find(c => c.cnpj === cnpjEmpresa);
-    const nomeEmpresa = empresa ? empresa.nomeFantasia : 'Empresa selecionada';
-    
-    // Buscar situações existentes da empresa
+    // Buscar situações existentes
     const situacoes = JSON.parse(localStorage.getItem('situacoes'));
     
-    // Verificar se já existe situação com mesma data para esta empresa
+    // VALIDAÇÃO FORTE: Verificar se já existe situação com mesma data para esta empresa
+    // Ignorar se estiver editando a mesma situação
     const situacaoExistenteMesmaData = situacoes.find(s => 
         s.cnpjEmpresa === cnpjEmpresa && 
         s.dataSituacao === dataSituacao &&
-        (!situacaoId || s.id !== situacaoId) // Se estiver editando, ignorar a própria situação
+        (!situacaoId || s.id !== situacaoId) // Se estiver editando, ignorar a própria
     );
     
-    if (situacaoExistenteMesmaData && !situacaoId) {
-        // Encontrar situação mais recente
-        const situacoesEmpresa = situacoes
-            .filter(s => s.cnpjEmpresa === cnpjEmpresa)
-            .sort((a, b) => new Date(b.dataSituacao) - new Date(a.dataSituacao));
+    if (situacaoExistenteMesmaData) {
+        // Buscar dados completos da situação existente
+        const situacaoExistenteCompleta = situacoes.find(s => s.id === situacaoExistenteMesmaData.id);
         
-        const situacaoMaisRecente = situacoesEmpresa.length > 0 ? situacoesEmpresa[0] : null;
+        let mensagemDetalhada = `Já existe uma situação registrada para ${empresa.nomeFantasia} na data ${formatarData(dataSituacao)}.\n\n`;
+        mensagemDetalhada += `Detalhes da situação existente:\n`;
+        mensagemDetalhada += `• Tributação: ${situacaoExistenteCompleta.tributacao === 'simples' ? 'Simples Nacional' : 
+                              situacaoExistenteCompleta.tributacao === 'presumido' ? 'Lucro Presumido' : 'Lucro Real'}\n`;
         
-        let mensagem = `Já existe uma situação registrada para ${nomeEmpresa} na data ${formatarData(dataSituacao)}.\n\n`;
-        mensagem += `Deseja atualizar a situação existente?\n\n`;
-        
-        if (situacaoMaisRecente) {
-            const tributacaoText = {
-                'simples': 'Simples Nacional',
-                'presumido': 'Lucro Presumido',
-                'real': 'Lucro Real'
-            }[situacaoMaisRecente.tributacao] || situacaoMaisRecente.tributacao;
-            
-            mensagem += `Situação atual (mais recente):\n`;
-            mensagem += `• Data: ${formatarData(situacaoMaisRecente.dataSituacao)}\n`;
-            mensagem += `• Tributação: ${tributacaoText}\n`;
-            mensagem += `• Endereço: ${situacaoMaisRecente.endereco}\n`;
+        if (situacaoExistenteCompleta.tributacao === 'simples' && situacaoExistenteCompleta.anexo) {
+            mensagemDetalhada += `• Anexo: ${situacaoExistenteCompleta.anexo} (${getDescricaoAnexo(situacaoExistenteCompleta.anexo)})\n`;
         }
         
-        mostrarModal('Situação Já Existe', mensagem, () => {
-            // Encontrar a situação exata com a mesma data
-            const situacaoParaAtualizar = situacoes.find(s => 
-                s.cnpjEmpresa === cnpjEmpresa && 
-                s.dataSituacao === dataSituacao
-            );
-            
-            if (situacaoParaAtualizar) {
-                // Preencher formulário com dados existentes para edição
-                preencherFormularioSituacao(situacaoParaAtualizar);
-                mostrarMensagem('Preencha os dados para atualizar a situação.');
-            }
+        mensagemDetalhada += `• Endereço: ${situacaoExistenteCompleta.endereco}\n`;
+        mensagemDetalhada += `• Data de registro: ${formatarDataHora(situacaoExistenteCompleta.dataRegistro)}\n\n`;
+        mensagemDetalhada += `Deseja editar a situação existente?`;
+        
+        mostrarModal('Situação Já Existente', mensagemDetalhada, () => {
+            preencherFormularioSituacao(situacaoExistenteCompleta);
+            mostrarMensagem('Carregando situação para edição...');
         });
         return;
     }
+    
+    // VALIDAÇÃO ADICIONAL: Verificar se já existe situação mais recente
+    const situacoesEmpresa = situacoes
+        .filter(s => s.cnpjEmpresa === cnpjEmpresa)
+        .sort((a, b) => new Date(b.dataSituacao) - new Date(a.dataSituacao));
+    
+    if (situacoesEmpresa.length > 0 && !situacaoId) {
+        const situacaoMaisRecente = situacoesEmpresa[0];
+        const dataMaisRecente = new Date(situacaoMaisRecente.dataSituacao);
+        const novaData = new Date(dataSituacao);
+        
+        // Se a nova data for mais antiga que a mais recente, alertar
+        if (novaData < dataMaisRecente) {
+            mostrarModal('Data Anterior à Situação Mais Recente',
+                `A data informada (${formatarData(dataSituacao)}) é anterior à situação mais recente da empresa (${formatarData(situacaoMaisRecente.dataSituacao)}).\n\n` +
+                `Isso pode criar inconsistências no histórico. Deseja continuar?`,
+            () => {
+                // Usuário confirmou, continuar com o salvamento
+                continuarSalvamentoSituacao(dataSituacao, endereco, tributacao, cnpjEmpresa, anexoSimples, atividadesAnexo, situacaoId, empresa);
+            });
+            return;
+        }
+    }
+    
+    // Se passou por todas as validações, continuar com o salvamento
+    continuarSalvamentoSituacao(dataSituacao, endereco, tributacao, cnpjEmpresa, anexoSimples, atividadesAnexo, situacaoId, empresa);
+}
+
+// Função separada para o processo de salvamento
+function continuarSalvamentoSituacao(dataSituacao, endereco, tributacao, cnpjEmpresa, anexoSimples, atividadesAnexo, situacaoId, empresa) {
+    const situacoes = JSON.parse(localStorage.getItem('situacoes'));
     
     // Criar/atualizar situação
     let situacaoAtualizada;
@@ -582,8 +624,8 @@ function salvarSituacao(e) {
     
     // Mensagem de sucesso
     let mensagemSucesso = situacaoId ? 
-        `Situação atualizada para ${nomeEmpresa}!` : 
-        `Situação registrada para ${nomeEmpresa} com sucesso!`;
+        `Situação atualizada para ${empresa.nomeFantasia}!` : 
+        `Situação registrada para ${empresa.nomeFantasia} com sucesso!`;
     
     if (tributacao === 'simples') {
         mensagemSucesso += `\nAnexo: ${getDescricaoAnexo(anexoSimples)}`;
@@ -605,15 +647,14 @@ function salvarSituacao(e) {
 // Função para preencher formulário de situação para edição
 function preencherFormularioSituacao(situacao) {
     // Adicionar campo hidden para ID se não existir
-    if (!document.getElementById('situacaoId')) {
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.id = 'situacaoId';
-        hiddenInput.value = situacao.id;
-        document.getElementById('situacaoForm').appendChild(hiddenInput);
-    } else {
-        document.getElementById('situacaoId').value = situacao.id;
+    let idInput = document.getElementById('situacaoId');
+    if (!idInput) {
+        idInput = document.createElement('input');
+        idInput.type = 'hidden';
+        idInput.id = 'situacaoId';
+        document.getElementById('situacaoForm').appendChild(idInput);
     }
+    idInput.value = situacao.id;
     
     // Preencher campos
     document.getElementById('dataSituacao').value = situacao.dataSituacao;
@@ -621,39 +662,40 @@ function preencherFormularioSituacao(situacao) {
     document.getElementById('tributacao').value = situacao.tributacao;
     document.getElementById('cnpjEmpresa').value = situacao.cnpjEmpresa;
     
-    // Atualizar campos do anexo se necessário
-    const anexoContainer = document.getElementById('anexoContainer');
-    if (situacao.tributacao === 'simples') {
-        anexoContainer.style.display = 'flex';
-        document.getElementById('anexoSimples').value = situacao.anexo || '';
-        document.getElementById('atividadesAnexo').value = situacao.atividadesAnexo || '';
-    } else {
-        anexoContainer.style.display = 'none';
-        document.getElementById('anexoSimples').value = '';
-        document.getElementById('atividadesAnexo').value = '';
-    }
+    // Disparar evento change para mostrar/ocultar campos do anexo
+    document.getElementById('tributacao').dispatchEvent(new Event('change'));
+    
+    // Preencher campos do anexo se necessário
+    setTimeout(() => {
+        if (situacao.tributacao === 'simples') {
+            document.getElementById('anexoSimples').value = situacao.anexo || '';
+            document.getElementById('atividadesAnexo').value = situacao.atividadesAnexo || '';
+        }
+    }, 100);
     
     // Atualizar título e botão
     const titulo = document.querySelector('#situacaoTab h2');
-    const originalTitulo = titulo.innerHTML;
-    titulo.innerHTML = '<i class="fas fa-building"></i> Editando Situação da Empresa';
-    
     const submitBtn = document.querySelector('#situacaoForm .btn-primary');
-    const originalTexto = submitBtn.innerHTML;
+    
+    // Salvar textos originais
+    if (!titulo.dataset.original) {
+        titulo.dataset.original = titulo.innerHTML;
+    }
+    if (!submitBtn.dataset.original) {
+        submitBtn.dataset.original = submitBtn.innerHTML;
+    }
+    
+    titulo.innerHTML = '<i class="fas fa-edit"></i> Editando Situação da Empresa';
     submitBtn.innerHTML = '<i class="fas fa-save"></i> Atualizar Situação';
+    
+    // Adicionar classe para indicar modo de edição
+    document.getElementById('situacaoForm').classList.add('editando');
     
     // Observar quando sair da aba para restaurar
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (!mutation.target.classList.contains('active')) {
-                titulo.innerHTML = originalTitulo;
-                submitBtn.innerHTML = originalTexto;
-                
-                // Remover ID se não estiver mais editando
-                if (document.getElementById('situacaoId')) {
-                    document.getElementById('situacaoId').remove();
-                }
-                
+                restaurarFormularioSituacao();
                 observer.disconnect();
             }
         });
@@ -669,6 +711,32 @@ function preencherFormularioSituacao(situacao) {
     
     // Focar no primeiro campo
     document.getElementById('dataSituacao').focus();
+}
+
+// Função para restaurar formulário ao estado normal
+function restaurarFormularioSituacao() {
+    const titulo = document.querySelector('#situacaoTab h2');
+    const submitBtn = document.querySelector('#situacaoForm .btn-primary');
+    
+    if (titulo.dataset.original) {
+        titulo.innerHTML = titulo.dataset.original;
+    }
+    
+    if (submitBtn.dataset.original) {
+        submitBtn.innerHTML = submitBtn.dataset.original;
+    }
+    
+    // Remover classe de edição
+    document.getElementById('situacaoForm').classList.remove('editando');
+    
+    // Remover ID se existir
+    if (document.getElementById('situacaoId')) {
+        document.getElementById('situacaoId').remove();
+    }
+    
+    // Limpar campos do anexo
+    document.getElementById('anexoSimples').value = '';
+    document.getElementById('atividadesAnexo').value = '';
 }
 
 // ========== MÁSCARAS PARA OS CAMPOS ==========
@@ -922,69 +990,218 @@ function carregarSituacoes() {
         return;
     }
     
-    // Ordenar por data (mais recente primeiro)
-    situacoes.sort((a, b) => new Date(b.dataSituacao) - new Date(a.dataSituacao));
+    // Agrupar situações por empresa
+    const situacoesPorEmpresa = {};
+    situacoes.forEach(situacao => {
+        if (!situacoesPorEmpresa[situacao.cnpjEmpresa]) {
+            situacoesPorEmpresa[situacao.cnpjEmpresa] = [];
+        }
+        situacoesPorEmpresa[situacao.cnpjEmpresa].push(situacao);
+    });
+    
+    // Ordenar cada grupo por data (mais recente primeiro)
+    Object.keys(situacoesPorEmpresa).forEach(cnpj => {
+        situacoesPorEmpresa[cnpj].sort((a, b) => new Date(b.dataSituacao) - new Date(a.dataSituacao));
+    });
     
     listaSituacoes.innerHTML = '';
     
-    situacoes.forEach(situacao => {
-        // Buscar informações da empresa
-        const clientes = JSON.parse(localStorage.getItem('clientes'));
-        const empresa = clientes.find(c => c.cnpj === situacao.cnpjEmpresa);
-        const nomeEmpresa = empresa ? empresa.nomeFantasia : 'Empresa não encontrada';
-        
-        // Mapear tributação para texto
-        const tributacaoText = {
-            'simples': 'Simples Nacional',
-            'presumido': 'Lucro Presumido',
-            'real': 'Lucro Real'
-        }[situacao.tributacao] || situacao.tributacao;
-        
-        // Cor baseada no tipo de tributação
-        let corTributacao = '#4a6491';
-        if (situacao.tributacao === 'simples') corTributacao = '#2ecc71';
-        if (situacao.tributacao === 'presumido') corTributacao = '#e74c3c';
-        if (situacao.tributacao === 'real') corTributacao = '#3498db';
-        
-        const item = document.createElement('div');
-        item.className = 'item-lista';
-        item.style.borderLeft = `4px solid ${corTributacao}`;
-        
-        let anexoHTML = '';
-        if (situacao.tributacao === 'simples' && situacao.anexo) {
-            anexoHTML = `
-                <div class="anexo-info">
-                    <span class="anexo-badge anexo-${situacao.anexo}">Anexo ${situacao.anexo}</span>
-                    <span class="anexo-descricao">${getDescricaoAnexo(situacao.anexo)}</span>
-                </div>
-                ${situacao.atividadesAnexo ? `<p><strong>Atividades:</strong> ${situacao.atividadesAnexo}</p>` : ''}
-            `;
-        }
-        
-        // Verificar se é a situação mais recente
-        const situacoesEmpresa = situacoes
-            .filter(s => s.cnpjEmpresa === situacao.cnpjEmpresa)
-            .sort((a, b) => new Date(b.dataSituacao) - new Date(a.dataSituacao));
-        
-        const isMaisRecente = situacoesEmpresa.length > 0 && situacoesEmpresa[0].id === situacao.id;
-        
-        item.innerHTML = `
-            <div class="item-info">
-                ${isMaisRecente ? '<span class="badge-mais-recente" style="background-color: #48bb78; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin-right: 8px;">MAIS RECENTE</span>' : ''}
-                <h4>${nomeEmpresa}</h4>
-                <p><strong>Data da Situação:</strong> ${formatarData(situacao.dataSituacao)} ${isMaisRecente ? '<i class="fas fa-crown" style="color: #f6e05e;"></i>' : ''}</p>
-                <p><strong>Tributação:</strong> <span style="color: ${corTributacao}; font-weight: bold">${tributacaoText}</span></p>
-                ${anexoHTML}
-                <p><strong>Endereço:</strong> ${situacao.endereco}</p>
-                <p><small>Registrado em: ${formatarDataHora(situacao.dataRegistro)} ${situacao.dataAtualizacao !== situacao.dataRegistro ? `<br>Atualizado em: ${formatarDataHora(situacao.dataAtualizacao)}` : ''}</small></p>
-            </div>
-            <div class="item-acoes">
-                <button class="btn-secondary" onclick="editarSituacao('${situacao.id}')"><i class="fas fa-edit"></i> Editar</button>
-                <button class="btn-secondary" onclick="excluirSituacao('${situacao.id}')"><i class="fas fa-trash-alt"></i> Excluir</button>
-            </div>
-        `;
-        listaSituacoes.appendChild(item);
+    // Buscar todos os clientes para nomes
+    const clientes = JSON.parse(localStorage.getItem('clientes'));
+    
+    // Ordenar empresas por nome
+    const empresasOrdenadas = Object.keys(situacoesPorEmpresa).sort((a, b) => {
+        const empresaA = clientes.find(c => c.cnpj === a);
+        const empresaB = clientes.find(c => c.cnpj === b);
+        return (empresaA?.nomeFantasia || '').localeCompare(empresaB?.nomeFantasia || '');
     });
+    
+    empresasOrdenadas.forEach(cnpj => {
+        const situacoesEmpresa = situacoesPorEmpresa[cnpj];
+        const empresa = clientes.find(c => c.cnpj === cnpj);
+        
+        if (!empresa) return;
+        
+        // Cabeçalho da empresa
+        const header = document.createElement('div');
+        header.className = 'empresa-header';
+        header.innerHTML = `
+            <h4 style="margin: 20px 0 10px 0; color: #2c3e50; border-bottom: 2px solid #4a6491; padding-bottom: 5px;">
+                <i class="fas fa-building"></i> ${empresa.nomeFantasia}
+                <small style="font-size: 0.9rem; color: #666; margin-left: 10px;">
+                    (${formatarCNPJ(cnpj)}) - ${situacoesEmpresa.length} situação(ões)
+                </small>
+            </h4>
+        `;
+        listaSituacoes.appendChild(header);
+        
+        // Listar situações da empresa
+        situacoesEmpresa.forEach((situacao, index) => {
+            // Mapear tributação para texto
+            const tributacaoText = {
+                'simples': 'Simples Nacional',
+                'presumido': 'Lucro Presumido',
+                'real': 'Lucro Real'
+            }[situacao.tributacao] || situacao.tributacao;
+            
+            // Cor baseada no tipo de tributação
+            let corTributacao = '#4a6491';
+            if (situacao.tributacao === 'simples') corTributacao = '#2ecc71';
+            if (situacao.tributacao === 'presumido') corTributacao = '#e74c3c';
+            if (situacao.tributacao === 'real') corTributacao = '#3498db';
+            
+            const item = document.createElement('div');
+            item.className = 'item-lista';
+            item.style.borderLeft = `4px solid ${corTributacao}`;
+            item.style.marginBottom = index === situacoesEmpresa.length - 1 ? '0' : '10px';
+            
+            // Verificar se é a situação mais recente
+            const isMaisRecente = index === 0;
+            
+            let anexoHTML = '';
+            if (situacao.tributacao === 'simples' && situacao.anexo) {
+                anexoHTML = `
+                    <div class="anexo-info">
+                        <span class="anexo-badge anexo-${situacao.anexo}">Anexo ${situacao.anexo}</span>
+                        <span class="anexo-descricao">${getDescricaoAnexo(situacao.anexo)}</span>
+                    </div>
+                    ${situacao.atividadesAnexo ? `<p><strong>Atividades:</strong> ${situacao.atividadesAnexo}</p>` : ''}
+                `;
+            }
+            
+            item.innerHTML = `
+                <div class="item-info">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="margin: 0;">
+                            ${isMaisRecente ? '<span class="badge-mais-recente">SITUAÇÃO ATUAL</span>' : ''}
+                            ${formatarData(situacao.dataSituacao)}
+                        </h4>
+                        <div>
+                            <span style="color: ${corTributacao}; font-weight: bold; font-size: 0.9rem;">
+                                ${tributacaoText}
+                            </span>
+                        </div>
+                    </div>
+                    ${anexoHTML}
+                    <p><strong>Endereço:</strong> ${situacao.endereco}</p>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 8px;">
+                        <span><strong>Registro:</strong> ${formatarDataHora(situacao.dataRegistro)}</span>
+                        ${situacao.dataAtualizacao !== situacao.dataRegistro ? 
+                            `<span style="margin-left: 15px;"><strong>Atualizado:</strong> ${formatarDataHora(situacao.dataAtualizacao)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="item-acoes">
+                    <button class="btn-secondary" onclick="editarSituacao('${situacao.id}')" title="Editar situação">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                    <button class="btn-secondary" onclick="excluirSituacao('${situacao.id}')" title="Excluir situação">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `;
+            listaSituacoes.appendChild(item);
+        });
+    });
+}
+
+// Função para validar data da situação
+function validarDataSituacao(cnpjEmpresa, dataSituacao, situacaoId = null) {
+    const clientes = JSON.parse(localStorage.getItem('clientes'));
+    const empresa = clientes.find(c => c.cnpj === cnpjEmpresa);
+    
+    if (!empresa) {
+        return { valido: false, mensagem: 'Empresa não encontrada.' };
+    }
+    
+    const dataAbertura = new Date(empresa.dataAbertura);
+    const dataSituacaoObj = new Date(dataSituacao);
+    
+    // Resetar horas para comparar apenas datas
+    dataAbertura.setHours(0, 0, 0, 0);
+    dataSituacaoObj.setHours(0, 0, 0, 0);
+    
+    // Validar se não é anterior à data de abertura
+    if (dataSituacaoObj < dataAbertura) {
+        return {
+            valido: false,
+            mensagem: `A data da situação não pode ser anterior à data de abertura da empresa (${formatarData(empresa.dataAbertura)}).`
+        };
+    }
+    
+    // Validar se não é no futuro
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    if (dataSituacaoObj > hoje) {
+        return {
+            valido: false,
+            mensagem: 'A data da situação não pode ser no futuro.'
+        };
+    }
+    
+    // Validar duplicidade
+    const situacoes = JSON.parse(localStorage.getItem('situacoes'));
+    const situacaoExistente = situacoes.find(s => 
+        s.cnpjEmpresa === cnpjEmpresa && 
+        s.dataSituacao === dataSituacao &&
+        (!situacaoId || s.id !== situacaoId)
+    );
+    
+    if (situacaoExistente) {
+        return {
+            valido: false,
+            mensagem: `Já existe uma situação cadastrada para esta empresa na data ${formatarData(dataSituacao)}.`,
+            situacaoExistente: situacaoExistente
+        };
+    }
+    
+    return { valido: true };
+}
+
+// Adicionar validação em tempo real no campo de data
+document.addEventListener('DOMContentLoaded', function() {
+    const dataSituacaoInput = document.getElementById('dataSituacao');
+    
+    if (dataSituacaoInput) {
+        dataSituacaoInput.addEventListener('change', function() {
+            const cnpjEmpresa = document.getElementById('cnpjEmpresa').value;
+            const dataSituacao = this.value;
+            const situacaoId = document.getElementById('situacaoId') ? document.getElementById('situacaoId').value : null;
+            
+            if (cnpjEmpresa && dataSituacao) {
+                const validacao = validarDataSituacao(cnpjEmpresa, dataSituacao, situacaoId);
+                
+                // Mostrar feedback visual
+                const feedbackElement = document.getElementById('dataSituacaoFeedback') || 
+                    criarElementoFeedback('dataSituacao');
+                
+                if (!validacao.valido) {
+                    feedbackElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${validacao.mensagem}`;
+                    feedbackElement.style.color = '#e74c3c';
+                    dataSituacaoInput.style.borderColor = '#e74c3c';
+                } else {
+                    feedbackElement.innerHTML = '<i class="fas fa-check-circle"></i> Data válida';
+                    feedbackElement.style.color = '#2ecc71';
+                    dataSituacaoInput.style.borderColor = '#2ecc71';
+                }
+            }
+        });
+    }
+});
+
+// Função auxiliar para criar elemento de feedback
+function criarElementoFeedback(inputId) {
+    const input = document.getElementById(inputId);
+    const feedback = document.createElement('div');
+    feedback.id = `${inputId}Feedback`;
+    feedback.style.cssText = `
+        margin-top: 5px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: all 0.3s;
+    `;
+    input.parentNode.appendChild(feedback);
+    return feedback;
 }
 
 // Função para editar situação
@@ -1006,6 +1223,29 @@ function excluirSituacao(id) {
         carregarSituacoes();
         mostrarMensagem('Situação excluída com sucesso!');
     });
+}
+
+// Função para verificar histórico de situações de uma empresa
+function verificarHistoricoSituacoes(cnpjEmpresa) {
+    const situacoes = JSON.parse(localStorage.getItem('situacoes'));
+    const clientes = JSON.parse(localStorage.getItem('clientes'));
+    
+    if (!situacoes || !clientes) return null;
+    
+    const empresa = clientes.find(c => c.cnpj === cnpjEmpresa);
+    if (!empresa) return null;
+    
+    const situacoesEmpresa = situacoes
+        .filter(s => s.cnpjEmpresa === cnpjEmpresa)
+        .sort((a, b) => new Date(a.dataSituacao) - new Date(b.dataSituacao));
+    
+    return {
+        empresa: empresa,
+        situacoes: situacoesEmpresa,
+        total: situacoesEmpresa.length,
+        primeiraData: situacoesEmpresa.length > 0 ? situacoesEmpresa[0].dataSituacao : null,
+        ultimaData: situacoesEmpresa.length > 0 ? situacoesEmpresa[situacoesEmpresa.length - 1].dataSituacao : null
+    };
 }
 
 // ========== GERENCIAMENTO DE VENDAS ==========
