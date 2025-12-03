@@ -481,35 +481,43 @@ function salvarSituacao(e) {
         return;
     }
     
-    // VALIDAÇÃO IMPORTANTE: Data da situação não pode ser anterior à data de abertura
+    // Buscar dados da empresa
     const clientes = JSON.parse(localStorage.getItem('clientes'));
     const empresa = clientes.find(c => c.cnpj === cnpjEmpresa);
     
-    if (empresa) {
-        const dataAbertura = new Date(empresa.dataAbertura);
-        const dataSituacaoObj = new Date(dataSituacao);
-        
-        // Resetar horas para comparar apenas datas
-        dataAbertura.setHours(0, 0, 0, 0);
-        dataSituacaoObj.setHours(0, 0, 0, 0);
-        
-        if (dataSituacaoObj < dataAbertura) {
-            mostrarModal('Erro de Validação', 
-                `A data da situação (${formatarData(dataSituacao)}) não pode ser anterior à data de abertura da empresa (${formatarData(empresa.dataAbertura)}).`);
-            document.getElementById('dataSituacao').focus();
-            return;
-        }
-        
-        // VALIDAÇÃO: Data da situação não pode ser no futuro (opcional)
-//        const hoje = new Date();
-//        hoje.setHours(0, 0, 0, 0);
-//        
-//        if (dataSituacaoObj > hoje) {
-//            mostrarModal('Erro de Validação', 
-//                `A data da situação (${formatarData(dataSituacao)}) não pode ser no futuro.`);
-//            document.getElementById('dataSituacao').focus();
-//            return;
-//        }
+    if (!empresa) {
+        mostrarModal('Erro', 'Empresa não encontrada.');
+        return;
+    }
+    
+    // **CORREÇÃO 1: VALIDAÇÃO RIGOROSA DA DATA DE ABERTURA**
+    const dataAbertura = new Date(empresa.dataAbertura);
+    const dataSituacaoObj = new Date(dataSituacao);
+    
+    // Ajustar para comparar apenas a data (ignorar hora)
+    dataAbertura.setHours(0, 0, 0, 0);
+    dataSituacaoObj.setHours(0, 0, 0, 0);
+    
+    console.log('Data abertura:', dataAbertura, 'Data situação:', dataSituacaoObj);
+    
+    if (dataSituacaoObj < dataAbertura) {
+        mostrarModal('Erro de Validação', 
+            `A data da situação (${formatarData(dataSituacao)}) não pode ser anterior à data de abertura da empresa (${formatarData(empresa.dataAbertura)}).\n\n` +
+            `Data de abertura: ${formatarData(empresa.dataAbertura)}\n` +
+            `Data da situação: ${formatarData(dataSituacao)}`);
+        document.getElementById('dataSituacao').focus();
+        return;
+    }
+    
+    // **CORREÇÃO 2: VALIDAÇÃO DE DATA FUTURA**
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    if (dataSituacaoObj > hoje) {
+        mostrarModal('Erro de Validação', 
+            `A data da situação (${formatarData(dataSituacao)}) não pode ser no futuro.`);
+        document.getElementById('dataSituacao').focus();
+        return;
     }
     
     if (tributacao === 'simples' && !anexoSimples) {
@@ -521,55 +529,65 @@ function salvarSituacao(e) {
     // Buscar situações existentes
     const situacoes = JSON.parse(localStorage.getItem('situacoes'));
     
-    // VALIDAÇÃO FORTE: Verificar se já existe situação com mesma data para esta empresa
-    // Ignorar se estiver editando a mesma situação
-    const situacaoExistenteMesmaData = situacoes.find(s => 
-        s.cnpjEmpresa === cnpjEmpresa && 
-        s.dataSituacao === dataSituacao &&
-        (!situacaoId || s.id !== situacaoId) // Se estiver editando, ignorar a própria
-    );
+    // **CORREÇÃO 3: VALIDAÇÃO FORTE DE DUPLICIDADE**
+    // Encontrar TODAS as situações da empresa
+    const situacoesDaEmpresa = situacoes.filter(s => s.cnpjEmpresa === cnpjEmpresa);
     
-    if (situacaoExistenteMesmaData) {
-        // Buscar dados completos da situação existente
-        const situacaoExistenteCompleta = situacoes.find(s => s.id === situacaoExistenteMesmaData.id);
+    // Verificar se já existe situação com mesma data (ignorando a que está sendo editada)
+    const situacaoDuplicada = situacoesDaEmpresa.find(s => {
+        const dataSituacaoExistente = new Date(s.dataSituacao);
+        dataSituacaoExistente.setHours(0, 0, 0, 0);
         
-        let mensagemDetalhada = `Já existe uma situação registrada para ${empresa.nomeFantasia} na data ${formatarData(dataSituacao)}.\n\n`;
-        mensagemDetalhada += `Detalhes da situação existente:\n`;
-        mensagemDetalhada += `• Tributação: ${situacaoExistenteCompleta.tributacao === 'simples' ? 'Simples Nacional' : 
-                              situacaoExistenteCompleta.tributacao === 'presumido' ? 'Lucro Presumido' : 'Lucro Real'}\n`;
+        return dataSituacaoExistente.getTime() === dataSituacaoObj.getTime() &&
+               (!situacaoId || s.id !== situacaoId);
+    });
+    
+    if (situacaoDuplicada) {
+        // Buscar dados completos da situação duplicada
+        const situacaoDuplicadaCompleta = situacoes.find(s => s.id === situacaoDuplicada.id);
         
-        if (situacaoExistenteCompleta.tributacao === 'simples' && situacaoExistenteCompleta.anexo) {
-            mensagemDetalhada += `• Anexo: ${situacaoExistenteCompleta.anexo} (${getDescricaoAnexo(situacaoExistenteCompleta.anexo)})\n`;
+        let mensagemDetalhada = `JÁ EXISTE uma situação registrada para esta empresa na data ${formatarData(dataSituacao)}!\n\n`;
+        mensagemDetalhada += `Dados da situação existente:\n`;
+        mensagemDetalhada += `• Data: ${formatarData(situacaoDuplicadaCompleta.dataSituacao)}\n`;
+        mensagemDetalhada += `• Tributação: ${situacaoDuplicadaCompleta.tributacao === 'simples' ? 'Simples Nacional' : 
+                              situacaoDuplicadaCompleta.tributacao === 'presumido' ? 'Lucro Presumido' : 'Lucro Real'}\n`;
+        
+        if (situacaoDuplicadaCompleta.tributacao === 'simples' && situacaoDuplicadaCompleta.anexo) {
+            mensagemDetalhada += `• Anexo: ${situacaoDuplicadaCompleta.anexo} (${getDescricaoAnexo(situacaoDuplicadaCompleta.anexo)})\n`;
         }
         
-        mensagemDetalhada += `• Endereço: ${situacaoExistenteCompleta.endereco}\n`;
-        mensagemDetalhada += `• Data de registro: ${formatarDataHora(situacaoExistenteCompleta.dataRegistro)}\n\n`;
+        mensagemDetalhada += `• Endereço: ${situacaoDuplicadaCompleta.endereco}\n`;
+        mensagemDetalhada += `• Registro: ${formatarDataHora(situacaoDuplicadaCompleta.dataRegistro)}\n\n`;
         mensagemDetalhada += `Deseja editar a situação existente?`;
         
-        mostrarModal('Situação Já Existente', mensagemDetalhada, () => {
-            preencherFormularioSituacao(situacaoExistenteCompleta);
+        mostrarModal('DATA DUPLICADA - NÃO PERMITIDO', mensagemDetalhada, () => {
+            preencherFormularioSituacao(situacaoDuplicadaCompleta);
             mostrarMensagem('Carregando situação para edição...');
         });
         return;
     }
     
-    // VALIDAÇÃO ADICIONAL: Verificar se já existe situação mais recente
-    const situacoesEmpresa = situacoes
-        .filter(s => s.cnpjEmpresa === cnpjEmpresa)
-        .sort((a, b) => new Date(b.dataSituacao) - new Date(a.dataSituacao));
-    
-    if (situacoesEmpresa.length > 0 && !situacaoId) {
-        const situacaoMaisRecente = situacoesEmpresa[0];
+    // **CORREÇÃO 4: VALIDAÇÃO DE SEQUÊNCIA TEMPORAL**
+    // Verificar se a nova data está em sequência lógica com as existentes
+    if (situacoesDaEmpresa.length > 0 && !situacaoId) {
+        // Ordenar por data (mais recente primeiro)
+        situacoesDaEmpresa.sort((a, b) => new Date(b.dataSituacao) - new Date(a.dataSituacao));
+        const situacaoMaisRecente = situacoesDaEmpresa[0];
         const dataMaisRecente = new Date(situacaoMaisRecente.dataSituacao);
-        const novaData = new Date(dataSituacao);
+        dataMaisRecente.setHours(0, 0, 0, 0);
         
-        // Se a nova data for mais antiga que a mais recente, alertar
-        if (novaData < dataMaisRecente) {
-            mostrarModal('Data Anterior à Situação Mais Recente',
+        if (dataSituacaoObj.getTime() === dataMaisRecente.getTime()) {
+            // Já tratado acima como duplicidade
+        } else if (dataSituacaoObj > dataMaisRecente) {
+            // Data futura em relação à mais recente - OK
+            console.log('Nova data é mais recente que a situação atual');
+        } else {
+            // Data anterior à situação mais recente - Perguntar se quer inserir no histórico
+            mostrarModal('Inserir no Histórico',
                 `A data informada (${formatarData(dataSituacao)}) é anterior à situação mais recente da empresa (${formatarData(situacaoMaisRecente.dataSituacao)}).\n\n` +
-                `Isso pode criar inconsistências no histórico. Deseja continuar?`,
+                `Isso criará uma nova entrada no histórico. Deseja continuar?`,
             () => {
-                // Usuário confirmou, continuar com o salvamento
+                // Continuar com o salvamento
                 continuarSalvamentoSituacao(dataSituacao, endereco, tributacao, cnpjEmpresa, anexoSimples, atividadesAnexo, situacaoId, empresa);
             });
             return;
@@ -646,12 +664,13 @@ function continuarSalvamentoSituacao(dataSituacao, endereco, tributacao, cnpjEmp
 
 // Função para preencher formulário de situação para edição
 function preencherFormularioSituacao(situacao) {
-    // Adicionar campo hidden para ID se não existir
+    // Adicionar campo hidden para ID
     let idInput = document.getElementById('situacaoId');
     if (!idInput) {
         idInput = document.createElement('input');
         idInput.type = 'hidden';
         idInput.id = 'situacaoId';
+        idInput.name = 'situacaoId';
         document.getElementById('situacaoForm').appendChild(idInput);
     }
     idInput.value = situacao.id;
@@ -662,10 +681,11 @@ function preencherFormularioSituacao(situacao) {
     document.getElementById('tributacao').value = situacao.tributacao;
     document.getElementById('cnpjEmpresa').value = situacao.cnpjEmpresa;
     
-    // Disparar evento change para mostrar/ocultar campos do anexo
-    document.getElementById('tributacao').dispatchEvent(new Event('change'));
+    // Disparar evento change para mostrar/ocultar anexo
+    const changeEvent = new Event('change');
+    document.getElementById('tributacao').dispatchEvent(changeEvent);
     
-    // Preencher campos do anexo se necessário
+    // Preencher anexo se for Simples
     setTimeout(() => {
         if (situacao.tributacao === 'simples') {
             document.getElementById('anexoSimples').value = situacao.anexo || '';
@@ -673,11 +693,11 @@ function preencherFormularioSituacao(situacao) {
         }
     }, 100);
     
-    // Atualizar título e botão
+    // Atualizar interface para modo edição
     const titulo = document.querySelector('#situacaoTab h2');
     const submitBtn = document.querySelector('#situacaoForm .btn-primary');
     
-    // Salvar textos originais
+    // Salvar originais
     if (!titulo.dataset.original) {
         titulo.dataset.original = titulo.innerHTML;
     }
@@ -685,32 +705,17 @@ function preencherFormularioSituacao(situacao) {
         submitBtn.dataset.original = submitBtn.innerHTML;
     }
     
-    titulo.innerHTML = '<i class="fas fa-edit"></i> Editando Situação da Empresa';
-    submitBtn.innerHTML = '<i class="fas fa-save"></i> Atualizar Situação';
+    titulo.innerHTML = '<i class="fas fa-edit"></i> EDITANDO SITUAÇÃO';
+    submitBtn.innerHTML = '<i class="fas fa-save"></i> ATUALIZAR SITUAÇÃO';
     
-    // Adicionar classe para indicar modo de edição
+    // Adicionar indicador visual
     document.getElementById('situacaoForm').classList.add('editando');
     
-    // Observar quando sair da aba para restaurar
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (!mutation.target.classList.contains('active')) {
-                restaurarFormularioSituacao();
-                observer.disconnect();
-            }
-        });
-    });
-    
-    observer.observe(document.getElementById('situacaoTab'), { 
-        attributes: true, 
-        attributeFilter: ['class'] 
-    });
-    
-    // Ir para a aba de situação
+    // Ir para a aba
     switchTab('situacao');
     
-    // Focar no primeiro campo
-    document.getElementById('dataSituacao').focus();
+    // Validar em tempo real
+    setTimeout(validarDataSituacaoEmTempoReal, 200);
 }
 
 // Função para restaurar formulário ao estado normal
@@ -1159,35 +1164,99 @@ function validarDataSituacao(cnpjEmpresa, dataSituacao, situacaoId = null) {
 }
 
 // Adicionar validação em tempo real no campo de data
+// Adicionar evento para validar data em tempo real
 document.addEventListener('DOMContentLoaded', function() {
     const dataSituacaoInput = document.getElementById('dataSituacao');
+    const cnpjEmpresaSelect = document.getElementById('cnpjEmpresa');
     
     if (dataSituacaoInput) {
-        dataSituacaoInput.addEventListener('change', function() {
-            const cnpjEmpresa = document.getElementById('cnpjEmpresa').value;
-            const dataSituacao = this.value;
-            const situacaoId = document.getElementById('situacaoId') ? document.getElementById('situacaoId').value : null;
-            
-            if (cnpjEmpresa && dataSituacao) {
-                const validacao = validarDataSituacao(cnpjEmpresa, dataSituacao, situacaoId);
-                
-                // Mostrar feedback visual
-                const feedbackElement = document.getElementById('dataSituacaoFeedback') || 
-                    criarElementoFeedback('dataSituacao');
-                
-                if (!validacao.valido) {
-                    feedbackElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${validacao.mensagem}`;
-                    feedbackElement.style.color = '#e74c3c';
-                    dataSituacaoInput.style.borderColor = '#e74c3c';
-                } else {
-                    feedbackElement.innerHTML = '<i class="fas fa-check-circle"></i> Data válida';
-                    feedbackElement.style.color = '#2ecc71';
-                    dataSituacaoInput.style.borderColor = '#2ecc71';
-                }
-            }
-        });
+        // Validar quando o campo perder o foco
+        dataSituacaoInput.addEventListener('blur', validarDataSituacaoEmTempoReal);
+        // Validar quando a empresa for selecionada
+        if (cnpjEmpresaSelect) {
+            cnpjEmpresaSelect.addEventListener('change', validarDataSituacaoEmTempoReal);
+        }
     }
 });
+
+function validarDataSituacaoEmTempoReal() {
+    const cnpjEmpresa = document.getElementById('cnpjEmpresa').value;
+    const dataSituacao = document.getElementById('dataSituacao').value;
+    const situacaoId = document.getElementById('situacaoId') ? document.getElementById('situacaoId').value : null;
+    
+    if (!cnpjEmpresa || !dataSituacao) return;
+    
+    const clientes = JSON.parse(localStorage.getItem('clientes'));
+    const empresa = clientes.find(c => c.cnpj === cnpjEmpresa);
+    
+    if (!empresa) return;
+    
+    // Criar elemento de feedback se não existir
+    let feedbackElement = document.getElementById('dataSituacaoFeedback');
+    if (!feedbackElement) {
+        feedbackElement = document.createElement('div');
+        feedbackElement.id = 'dataSituacaoFeedback';
+        feedbackElement.style.cssText = `
+            margin-top: 5px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            padding: 5px;
+            border-radius: 4px;
+        `;
+        document.getElementById('dataSituacao').parentNode.appendChild(feedbackElement);
+    }
+    
+    const dataAbertura = new Date(empresa.dataAbertura);
+    const dataSituacaoObj = new Date(dataSituacao);
+    
+    // Resetar horas
+    dataAbertura.setHours(0, 0, 0, 0);
+    dataSituacaoObj.setHours(0, 0, 0, 0);
+    
+    // Verificar data de abertura
+    if (dataSituacaoObj < dataAbertura) {
+        feedbackElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ERRO: Data anterior à abertura da empresa (${formatarData(empresa.dataAbertura)})`;
+        feedbackElement.className = 'feedback-erro';
+        document.getElementById('dataSituacao').classList.add('input-invalido');
+        document.getElementById('dataSituacao').classList.remove('input-valido');
+        return;
+    }
+    
+    // Verificar se não é futuro
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    
+    if (dataSituacaoObj > hoje) {
+        feedbackElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ERRO: Data não pode ser no futuro`;
+        feedbackElement.className = 'feedback-erro';
+        document.getElementById('dataSituacao').classList.add('input-invalido');
+        document.getElementById('dataSituacao').classList.remove('input-valido');
+        return;
+    }
+    
+    // Verificar duplicidade
+    const situacoes = JSON.parse(localStorage.getItem('situacoes'));
+    const situacoesDaEmpresa = situacoes.filter(s => s.cnpjEmpresa === cnpjEmpresa);
+    
+    const dataDuplicada = situacoesDaEmpresa.find(s => {
+        const dataExistente = new Date(s.dataSituacao);
+        dataExistente.setHours(0, 0, 0, 0);
+        return dataExistente.getTime() === dataSituacaoObj.getTime() &&
+               (!situacaoId || s.id !== situacaoId);
+    });
+    
+    if (dataDuplicada) {
+        feedbackElement.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ALERTA: Já existe situação nesta data`;
+        feedbackElement.className = 'feedback-alerta';
+        document.getElementById('dataSituacao').classList.add('input-invalido');
+        document.getElementById('dataSituacao').classList.remove('input-valido');
+    } else {
+        feedbackElement.innerHTML = `<i class="fas fa-check-circle"></i> Data válida`;
+        feedbackElement.className = 'feedback-sucesso';
+        document.getElementById('dataSituacao').classList.add('input-valido');
+        document.getElementById('dataSituacao').classList.remove('input-invalido');
+    }
+}
 
 // Função auxiliar para criar elemento de feedback
 function criarElementoFeedback(inputId) {
