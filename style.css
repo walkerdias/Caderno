@@ -752,15 +752,13 @@ footer button {
 .item-acoes {
     display: flex;
     gap: 8px;
-    flex-wrap: wrap;
+    align-items: center;
 }
 
 .item-acoes button {
+    padding: 6px 12px;
+    font-size: 0.9rem;
     min-width: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
 }
 
 /* Responsividade para botões */
@@ -800,22 +798,38 @@ footer button {
     letter-spacing: 0.5px;
 }
 
-/* Cabeçalho de empresa no histórico */
+/* Cabeçalho de empresa */
 .empresa-header {
-    background-color: #f8fafc;
+    background-color: #f1f5f9;
     padding: 10px 15px;
-    border-radius: 8px;
-    margin: 15px 0;
-    border-left: 4px solid #4a6491;
+    border-radius: 6px;
+    margin: 15px 0 10px 0;
 }
 
 /* Formulário em modo de edição */
 #situacaoForm.editando {
     border: 2px solid #4a6491;
-    background-color: #f8fafc;
-    padding: 20px;
     border-radius: 8px;
-    margin-bottom: 20px;
+    padding: 20px;
+    background-color: #f8fafc;
+    box-shadow: 0 4px 12px rgba(74, 100, 145, 0.1);
+}
+
+#situacaoForm.editando .form-group {
+    margin-bottom: 15px;
+}
+
+/* Badge para situação atual */
+.badge-mais-recente {
+    display: inline-block;
+    background-color: #48bb78;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-left: 10px;
+    text-transform: uppercase;
 }
 
 /* Título quando está editando */
@@ -858,4 +872,10 @@ footer button {
     padding: 8px 12px;
     border-radius: 4px;
     margin-top: 5px;
+}
+
+/* Feedback visual para campos */
+.input-editando {
+    background-color: #fff3cd !important;
+    border-color: #ffc107 !important;
 }
