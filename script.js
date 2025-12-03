@@ -105,6 +105,51 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarConfigsPresumido();
     carregarConfigsReal();
     carregarHistoricoParam();
+
+	// Adicionar botão de exportação de parametrização
+    const exportParamBtn = document.createElement('button');
+    exportParamBtn.className = 'btn-secondary';
+    exportParamBtn.innerHTML = '<i class="fas fa-cogs"></i> Exportar Parametrização';
+    exportParamBtn.id = 'exportarParametrizacao';
+    exportParamBtn.onclick = exportarParametrizacao;
+    
+    // Adicionar ao footer (ou onde preferir)
+    const footer = document.querySelector('footer');
+    footer.insertBefore(exportParamBtn, footer.querySelector('#limparTudo'));
+    
+    // Adicionar função
+    window.exportarParametrizacao = function() {
+        const dados = {
+            parametrizacao: {
+                faixasSimples: JSON.parse(localStorage.getItem('paramFaixasSimples')),
+                configPresumido: JSON.parse(localStorage.getItem('paramConfigPresumido')),
+                configReal: JSON.parse(localStorage.getItem('paramConfigReal')),
+                historicoParam: JSON.parse(localStorage.getItem('paramHistorico'))
+            },
+            dataExportacao: new Date().toISOString(),
+            versao: '2.0',
+            tipo: 'apenas-parametrizacao'
+        };
+        
+        const dadosJSON = JSON.stringify(dados, null, 2);
+        const blob = new Blob([dadosJSON], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `parametrizacao-vendas-impostos-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        const mensagem = `Parametrização exportada com sucesso!\n` +
+            `• ${dados.parametrizacao.faixasSimples.length} faixa(s) do Simples\n` +
+            `• ${dados.parametrizacao.configPresumido.length} configuração(ões) do Presumido\n` +
+            `• ${dados.parametrizacao.configReal.length} configuração(ões) do Real`;
+        
+        mostrarMensagem(mensagem);
+    };
 });
 
 // Inicializar armazenamento de dados
@@ -2316,14 +2361,27 @@ function removerDadosRelacionados(cnpj) {
 // ========== EXPORTAÇÃO/IMPORTAÇÃO DE DADOS ==========
 function exportarDados() {
     const dados = {
+		 // Dados principais
         clientes: JSON.parse(localStorage.getItem('clientes')),
         situacoes: JSON.parse(localStorage.getItem('situacoes')),
         vendas: JSON.parse(localStorage.getItem('vendas')),
+		  // Dados de parametrização
+        parametrizacao: {
+            faixasSimples: JSON.parse(localStorage.getItem('paramFaixasSimples')),
+            configPresumido: JSON.parse(localStorage.getItem('paramConfigPresumido')),
+            configReal: JSON.parse(localStorage.getItem('paramConfigReal')),
+            historicoParam: JSON.parse(localStorage.getItem('paramHistorico'))
+		},
+		
+		// Metadados
         dataExportacao: new Date().toISOString(),
-        versao: '1.0',
+        versao: '2.0',
         totalClientes: JSON.parse(localStorage.getItem('clientes')).length,
         totalSituacoes: JSON.parse(localStorage.getItem('situacoes')).length,
-        totalVendas: JSON.parse(localStorage.getItem('vendas')).length
+        totalVendas: JSON.parse(localStorage.getItem('vendas')).length,
+        totalFaixasSimples: JSON.parse(localStorage.getItem('paramFaixasSimples')).length,
+        totalConfigPresumido: JSON.parse(localStorage.getItem('paramConfigPresumido')).length,
+        totalConfigReal: JSON.parse(localStorage.getItem('paramConfigReal')).length
     };
     
     const dadosJSON = JSON.stringify(dados, null, 2);
@@ -2338,7 +2396,16 @@ function exportarDados() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    mostrarMensagem(`Dados exportados com sucesso! ${dados.totalClientes} clientes, ${dados.totalSituacoes} situações e ${dados.totalVendas} vendas.`);
+	// Mensagem atualizada
+    let mensagem = `Dados exportados com sucesso!\n`;
+    mensagem += `• ${dados.totalClientes} cliente(s)\n`;
+    mensagem += `• ${dados.totalSituacoes} situação(ões)\n`;
+    mensagem += `• ${dados.totalVendas} venda(s)\n`;
+    mensagem += `• ${dados.totalFaixasSimples} faixa(s) do Simples\n`;
+    mensagem += `• ${dados.totalConfigPresumido} configuração(ões) do Presumido\n`;
+    mensagem += `• ${dados.totalConfigReal} configuração(ões) do Real`;
+	
+    mostrarMensagem(mensagem);
 }
 
 function importarDados() {
@@ -2352,37 +2419,73 @@ function importarDados() {
             try {
                 const dados = JSON.parse(event.target.result);
                 
-                // Validar estrutura dos dados
+                // Validação básica da estrutura (versão antiga ou nova)
                 if (!dados.clientes || !dados.situacoes || !dados.vendas) {
-                    throw new Error('Formato de arquivo inválido');
+                    throw new Error('Formato de arquivo inválido - estrutura básica não encontrada');
                 }
                 
-                const totalClientes = dados.clientes.length;
-                const totalSituacoes = dados.situacoes.length;
-                const totalVendas = dados.vendas.length;
+                // Verificar se é backup antigo (sem parametrização)
+                const temParametrizacao = dados.parametrizacao !== undefined;
                 
-                mostrarModal('Importar Dados', 
-                    `Isso substituirá todos os dados atuais.\n\n` +
-                    `Arquivo contém:\n` +
-                    `• ${totalClientes} cliente(s)\n` +
-                    `• ${totalSituacoes} situação(ões)\n` +
-                    `• ${totalVendas} venda(s)\n\n` +
-                    `Deseja continuar?`, 
-                () => {
+                let mensagemConfirmacao = `Isso substituirá todos os dados atuais.\n\n`;
+                mensagemConfirmacao += `Arquivo contém:\n`;
+                mensagemConfirmacao += `• ${dados.clientes.length} cliente(s)\n`;
+                mensagemConfirmacao += `• ${dados.situacoes.length} situação(ões)\n`;
+                mensagemConfirmacao += `• ${dados.vendas.length} venda(s)\n`;
+                
+                if (temParametrizacao) {
+                    mensagemConfirmacao += `• ${dados.parametrizacao.faixasSimples.length} faixa(s) do Simples\n`;
+                    mensagemConfirmacao += `• ${dados.parametrizacao.configPresumido.length} configuração(ões) do Presumido\n`;
+                    mensagemConfirmacao += `• ${dados.parametrizacao.configReal.length} configuração(ões) do Real`;
+                }
+                
+                mostrarModal('Importar Dados', mensagemConfirmacao, () => {
+                    // Salvar dados principais
                     localStorage.setItem('clientes', JSON.stringify(dados.clientes));
                     localStorage.setItem('situacoes', JSON.stringify(dados.situacoes));
                     localStorage.setItem('vendas', JSON.stringify(dados.vendas));
+                    
+                    // Salvar dados de parametrização (se existirem)
+                    if (temParametrizacao) {
+                        localStorage.setItem('paramFaixasSimples', JSON.stringify(dados.parametrizacao.faixasSimples));
+                        localStorage.setItem('paramConfigPresumido', JSON.stringify(dados.parametrizacao.configPresumido));
+                        localStorage.setItem('paramConfigReal', JSON.stringify(dados.parametrizacao.configReal));
+                        localStorage.setItem('paramHistorico', JSON.stringify(dados.parametrizacao.historicoParam));
+                    } else {
+                        // Backup antigo - inicializar parametrização se não existir
+                        initParametrizacao();
+                    }
                     
                     // Atualizar interface
                     carregarClientes();
                     carregarSituacoes();
                     carregarVendas();
+                    carregarFaixasSimples();
+                    carregarConfigsPresumido();
+                    carregarConfigsReal();
+                    carregarHistoricoParam();
                     atualizarSelects();
                     
-                    mostrarMensagem(`Dados importados com sucesso! ${totalClientes} clientes, ${totalSituacoes} situações e ${totalVendas} vendas.`);
+                    // Mensagem de sucesso
+                    let mensagemSucesso = `Dados importados com sucesso!\n`;
+                    mensagemSucesso += `• ${dados.clientes.length} cliente(s)\n`;
+                    mensagemSucesso += `• ${dados.situacoes.length} situação(ões)\n`;
+                    mensagemSucesso += `• ${dados.vendas.length} venda(s)`;
+                    
+                    if (temParametrizacao) {
+                        mensagemSucesso += `\n• ${dados.parametrizacao.faixasSimples.length} faixa(s) do Simples`;
+                        mensagemSucesso += `\n• ${dados.parametrizacao.configPresumido.length} configuração(ões) do Presumido`;
+                        mensagemSucesso += `\n• ${dados.parametrizacao.configReal.length} configuração(ões) do Real`;
+                    }
+                    
+                    mostrarMensagem(mensagemSucesso);
                 });
             } catch (error) {
-                mostrarModal('Erro', 'Arquivo inválido ou corrompido. Verifique o formato.');
+                console.error('Erro na importação:', error);
+                mostrarModal('Erro na Importação', 
+                    `Arquivo inválido ou corrompido.\n\n` +
+                    `Detalhes: ${error.message}\n\n` +
+                    `Verifique se é um arquivo JSON válido gerado por este aplicativo.`);
             }
         };
         reader.readAsText(file);
@@ -2396,23 +2499,40 @@ function confirmarLimpezaDados() {
     const totalClientes = JSON.parse(localStorage.getItem('clientes')).length;
     const totalSituacoes = JSON.parse(localStorage.getItem('situacoes')).length;
     const totalVendas = JSON.parse(localStorage.getItem('vendas')).length;
+    const totalFaixasSimples = JSON.parse(localStorage.getItem('paramFaixasSimples')).length;
+    const totalConfigPresumido = JSON.parse(localStorage.getItem('paramConfigPresumido')).length;
+    const totalConfigReal = JSON.parse(localStorage.getItem('paramConfigReal')).length;
     
-    mostrarModal('Limpar Todos os Dados', 
-        `Tem certeza que deseja apagar todos os dados?\n\n` +
-        `Isso removerá:\n` +
-        `• ${totalClientes} cliente(s)\n` +
-        `• ${totalSituacoes} situação(ões)\n` +
-        `• ${totalVendas} venda(s)\n\n` +
-        `Esta ação não pode ser desfeita.`, 
-    () => {
+    let mensagem = `Tem certeza que deseja apagar TODOS os dados?\n\n`;
+    mensagem += `Isso removerá permanentemente:\n`;
+    mensagem += `• ${totalClientes} cliente(s)\n`;
+    mensagem += `• ${totalSituacoes} situação(ões)\n`;
+    mensagem += `• ${totalVendas} venda(s)\n`;
+    mensagem += `• ${totalFaixasSimples} faixa(s) do Simples\n`;
+    mensagem += `• ${totalConfigPresumido} configuração(ões) do Presumido\n`;
+    mensagem += `• ${totalConfigReal} configuração(ões) do Real\n\n`;
+    mensagem += `Esta ação não pode ser desfeita.`;
+    
+    mostrarModal('Limpar Todos os Dados', mensagem, () => {
+        // Limpar dados principais
         localStorage.setItem('clientes', JSON.stringify([]));
         localStorage.setItem('situacoes', JSON.stringify([]));
         localStorage.setItem('vendas', JSON.stringify([]));
+        
+        // Limpar dados de parametrização
+        localStorage.setItem('paramFaixasSimples', JSON.stringify([]));
+        localStorage.setItem('paramConfigPresumido', JSON.stringify([]));
+        localStorage.setItem('paramConfigReal', JSON.stringify([]));
+        localStorage.setItem('paramHistorico', JSON.stringify([]));
         
         // Atualizar interface
         carregarClientes();
         carregarSituacoes();
         carregarVendas();
+        carregarFaixasSimples();
+        carregarConfigsPresumido();
+        carregarConfigsReal();
+        carregarHistoricoParam();
         atualizarSelects();
         
         mostrarMensagem('Todos os dados foram removidos!');
