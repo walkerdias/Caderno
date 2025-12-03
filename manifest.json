@@ -1,0 +1,97 @@
+{
+  "name": "Controle de Vendas e Impostos",
+  "short_name": "Vendas & Impostos",
+  "description": "Aplicativo para registro mensal de vendas e cálculo de impostos (Simples Nacional e Lucro Presumido)",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2c3e50",
+  "theme_color": "#4a6491",
+  "icons": [
+    {
+      "src": "icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"],
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "scope": "./",
+  "screenshots": [
+    {
+      "src": "screenshots/mobile.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "platform": "narrow",
+      "label": "Tela de cadastro no celular"
+    },
+    {
+      "src": "screenshots/desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "platform": "wide",
+      "label": "Tela de cálculo no desktop"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nova Venda",
+      "short_name": "Venda",
+      "description": "Registrar novas vendas mensais",
+      "url": "./index.html#vendas",
+      "icons": [{ "src": "icons/shortcut-venda.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Calcular Impostos",
+      "short_name": "Impostos",
+      "description": "Calcular impostos das vendas",
+      "url": "./index.html#calculo",
+      "icons": [{ "src": "icons/shortcut-calculator.png", "sizes": "96x96" }]
+    }
+  ],
+  "prefer_related_applications": false
+}

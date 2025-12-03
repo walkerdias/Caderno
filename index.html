@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Vendas e Impostos</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-chart-line"></i> Controle de Vendas e Impostos</h1>
+            <p class="subtitle">Aplicativo para registro mensal de vendas e cálculo de impostos</p>
+            <div class="offline-status" id="offlineStatus">
+                <i class="fas fa-wifi"></i> <span>Online</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Navegação entre abas -->
+            <nav class="tabs">
+                <button class="tab-button active" data-tab="cliente"><i class="fas fa-user-tie"></i> Cadastro Cliente</button>
+                <button class="tab-button" data-tab="situacao"><i class="fas fa-building"></i> Situação Empresa</button>
+                <button class="tab-button" data-tab="vendas"><i class="fas fa-shopping-cart"></i> Registrar Vendas</button>
+                <button class="tab-button" data-tab="historico"><i class="fas fa-history"></i> Histórico</button>
+                <button class="tab-button" data-tab="calculo"><i class="fas fa-calculator"></i> Cálculo Impostos</button>
+				<button class="tab-button" data-tab="parametrizacao"><i class="fas fa-cogs"></i> Parametrização</button>
+            </nav>
+
+            <!-- Conteúdo das abas -->
+            <div class="tab-content active" id="clienteTab">
+                <h2><i class="fas fa-user-tie"></i> Cadastro de Cliente/Empresa</h2>
+                <form id="clienteForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cnpj">CNPJ (somente números):</label>
+                            <input type="text" id="cnpj" required>
+                            <small>Digite apenas números (14 dígitos)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ie">Inscrição Estadual (IE):</label>
+                            <input type="text" id="ie" maxlength="15">
+                            <small>Somente números</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="im">Inscrição Municipal:</label>
+                            <input type="text" id="im" maxlength="15">
+                        </div>
+                        <div class="form-group">
+                            <label for="dataAbertura">Data de Abertura:</label>
+                            <input type="date" id="dataAbertura" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="razaoSocial">Razão Social:</label>
+                            <input type="text" id="razaoSocial" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="nomeFantasia">Nome Fantasia:</label>
+                            <input type="text" id="nomeFantasia" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Salvar Cadastro</button>
+                    <button type="button" class="btn-secondary" id="limparCliente"><i class="fas fa-broom"></i> Limpar</button>
+                </form>
+                
+                <div class="clientes-cadastrados">
+                    <h3><i class="fas fa-list"></i> Clientes Cadastrados</h3>
+                    <div id="listaClientes" class="lista-clientes">
+                        <!-- Lista de clientes será carregada aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="situacaoTab">
+                <h2><i class="fas fa-building"></i> Situação da Empresa</h2>
+                <form id="situacaoForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="dataSituacao">Data da Situação:</label>
+                            <input type="date" id="dataSituacao" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tributacao">Tributação:</label>
+                            <select id="tributacao" required>
+                                <option value="">Selecione...</option>
+                                <option value="simples">Simples Nacional</option>
+                                <option value="presumido">Lucro Presumido</option>
+                                <option value="real">Lucro Real</option>
+                            </select>
+                        </div>
+                    </div>
+					<div class="form-row" id="anexoContainer" style="display: none;">
+						<div class="form-group">
+							<label for="anexoSimples">Anexo do Simples Nacional:</label>
+							<select id="anexoSimples">
+								<option value="">Selecione o anexo...</option>
+								<option value="I">Anexo I - Comércio</option>
+								<option value="II">Anexo II - Indústria</option>
+								<option value="III">Anexo III - Locação de bens móveis e serviços</option>
+								<option value="IV">Anexo IV - Prestação de serviços relacionados (§ 5o-C do art. 18)</option>
+								<option value="V">Anexo V - Prestação de serviços relacionados (§ 5o-I do art. 18)</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label for="atividadesAnexo">Atividades Principais:</label>
+							<input type="text" id="atividadesAnexo" placeholder="Ex: Comércio de roupas, Indústria têxtil">
+						</div>
+					</div>
+								
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label for="endereco">Endereço Completo:</label>
+                            <textarea id="endereco" rows="3" required></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cnpjEmpresa">Selecionar Empresa:</label>
+                            <select id="cnpjEmpresa" required>
+                                <option value="">Selecione uma empresa...</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Registrar Situação</button>
+                    <button type="button" class="btn-secondary" id="limparSituacao"><i class="fas fa-broom"></i> Limpar</button>
+                </form>
+                
+                <div class="situacoes-registradas">
+                    <h3><i class="fas fa-history"></i> Histórico de Situações</h3>
+                    <div id="listaSituacoes" class="lista-situacoes">
+                        <!-- Histórico de situações será carregado aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="vendasTab">
+                <h2><i class="fas fa-shopping-cart"></i> Registro Mensal de Vendas</h2>
+                <form id="vendasForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cnpjVendas">Selecionar Empresa:</label>
+                            <select id="cnpjVendas" required>
+                                <option value="">Selecione uma empresa...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="mesVendas">Mês/Ano de Referência:</label>
+                            <input type="month" id="mesVendas" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="valorVendas">Valor Total de Vendas (R$):</label>
+                            <input type="number" id="valorVendas" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Registrar Vendas</button>
+                    <button type="button" class="btn-secondary" id="limparVendas"><i class="fas fa-broom"></i> Limpar</button>
+                </form>
+                
+                <div class="vendas-registradas">
+                    <h3><i class="fas fa-list"></i> Vendas Registradas</h3>
+                    <div id="listaVendas" class="lista-vendas">
+                        <!-- Vendas registradas serão carregadas aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="historicoTab">
+                <h2><i class="fas fa-history"></i> Histórico Completo</h2>
+                <div class="filtros">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="filtroEmpresa">Filtrar por Empresa:</label>
+                            <select id="filtroEmpresa">
+                                <option value="">Todas as empresas</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filtroAno">Filtrar por Ano:</label>
+                            <select id="filtroAno">
+                                <option value="">Todos os anos</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn-secondary" id="aplicarFiltro"><i class="fas fa-filter"></i> Aplicar Filtros</button>
+                </div>
+                
+                <div class="historico-completo">
+                    <div id="conteudoHistorico">
+                        <!-- Histórico será carregado aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="calculoTab">
+                <h2><i class="fas fa-calculator"></i> Cálculo de Impostos</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="cnpjCalculo">Selecionar Empresa:</label>
+                        <select id="cnpjCalculo" required>
+                            <option value="">Selecione uma empresa...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="mesCalculo">Mês/Ano para Cálculo:</label>
+                        <input type="month" id="mesCalculo" required>
+                    </div>
+                </div>
+                
+                <button class="btn-primary" id="calcularImpostos"><i class="fas fa-calculator"></i> Calcular Impostos</button>
+                
+                <div class="resultado-calculo" id="resultadoCalculo">
+                    <!-- Resultado do cálculo será exibido aqui -->
+                    <div class="placeholder">
+                        <p>Selecione uma empresa e um mês/ano para calcular os impostos.</p>
+                    </div>
+                </div>
+                
+                <div class="info-tributacao">
+                    <h3><i class="fas fa-info-circle"></i> Informações sobre Tributação</h3>
+                    <div class="tributacao-detalhes">
+                        <div class="tributacao-item">
+                            <h4>Simples Nacional</h4>
+                            <p>Regime tributário simplificado para micro e pequenas empresas. As alíquotas variam de 4% a 33% dependendo do faturamento e atividade.</p>
+                        </div>
+                        <div class="tributacao-item">
+                            <h4>Lucro Presumido</h4>
+                            <p>Regime onde o lucro é presumido pela Receita Federal. As alíquotas são: IRPJ 15% + 10% sobre o excesso, CSLL 9% e PIS/COFINS cumulativos.</p>
+                        </div>
+                        <div class="tributacao-item">
+                            <h4>Lucro Real</h4>
+                            <p>Regime onde o imposto é calculado sobre o lucro real da empresa. As alíquotas são: IRPJ 15% + 10% sobre o excesso, CSLL 9% e PIS/COFINS não cumulativos.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+			<div class="tab-content" id="parametrizacaoTab">
+				<h2><i class="fas fa-cogs"></i> Parametrização Tributária</h2>
+    
+				<!-- Navegação interna da parametrização -->
+    <nav class="sub-tabs">
+        <button class="sub-tab-button active" data-subtab="simples"><i class="fas fa-chart-line"></i> Simples Nacional</button>
+        <button class="sub-tab-button" data-subtab="presumido"><i class="fas fa-calculator"></i> Lucro Presumido</button>
+        <button class="sub-tab-button" data-subtab="real"><i class="fas fa-balance-scale"></i> Lucro Real</button>
+        <button class="sub-tab-button" data-subtab="historico-param"><i class="fas fa-history"></i> Histórico</button>
+    </nav>
+    
+				<!-- Conteúdo do Simples Nacional -->
+    <div class="sub-tab-content active" id="simplesTab">
+        <h3><i class="fas fa-chart-line"></i> Configuração do Simples Nacional</h3>
+        
+        <div class="param-info">
+            <p>Configure as faixas de receita, alíquotas e repartição dos tributos do Simples Nacional.</p>
+            <button class="btn-secondary" id="novaFaixaSimples"><i class="fas fa-plus"></i> Nova Faixa</button>
+        </div>
+        
+        <form id="formFaixaSimples">
+            <input type="hidden" id="faixaId">
+            
+			<div class="form-row">
+				<div class="form-group">
+					<label for="faixaAnexo">Anexo:</label>
+					<select id="faixaAnexo" required>
+						<option value="">Selecione o anexo...</option>
+						<option value="I">Anexo I - Comércio</option>
+						<option value="II">Anexo II - Indústria</option>
+						<option value="III">Anexo III - Locação/Serviços não relacionados</option>
+						<option value="IV">Anexo IV - Serviços relacionados (§ 5o-C)</option>
+						<option value="V">Anexo V - Serviços relacionados (§ 5o-I)</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="faixaNome">Nome da Faixa:</label>
+					<input type="text" id="faixaNome" placeholder="Ex: 1ª Faixa" required>
+				</div>
+				<div class="form-group">
+					<label for="faixaAtiva">Status:</label>
+					<select id="faixaAtiva" required>
+						<option value="true">Ativa</option>
+						<option value="false">Inativa</option>
+					</select>
+				</div>
+			</div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="faixaInicio">Receita Inicial (R$):</label>
+                    <input type="number" id="faixaInicio" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="faixaFim">Receita Final (R$):</label>
+                    <input type="number" id="faixaFim" step="0.01" min="0">
+                    <small>Deixe em branco para "em diante"</small>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="faixaAliquota">Alíquota (%):</label>
+                    <input type="number" id="faixaAliquota" step="0.01" min="0" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="faixaDeduzir">Valor a Deduzir (R$):</label>
+                    <input type="number" id="faixaDeduzir" step="0.01" min="0">
+                </div>
+            </div>
+            
+            <h4>Repartição dos Tributos (%)</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="repIRPJ">IRPJ:</label>
+                    <input type="number" id="repIRPJ" step="0.01" min="0" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="repCSLL">CSLL:</label>
+                    <input type="number" id="repCSLL" step="0.01" min="0" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="repCOFINS">COFINS:</label>
+                    <input type="number" id="repCOFINS" step="0.01" min="0" max="100" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="repPIS">PIS/PASEP:</label>
+                    <input type="number" id="repPIS" step="0.01" min="0" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="repCPP">CPP:</label>
+                    <input type="number" id="repCPP" step="0.01" min="0" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="repICMS">ICMS:</label>
+                    <input type="number" id="repICMS" step="0.01" min="0" max="100" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="repISS">ISS:</label>
+                    <input type="number" id="repISS" step="0.01" min="0" max="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="repIPI">IPI:</label>
+                    <input type="number" id="repIPI" step="0.01" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label for="repINSS">INSS:</label>
+                    <input type="number" id="repINSS" step="0.01" min="0" max="100">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Salvar Faixa</button>
+            <button type="button" class="btn-secondary" id="limparFaixa"><i class="fas fa-broom"></i> Limpar</button>
+        </form>
+        
+		    <!-- Filtro por anexo -->
+		<div class="filtro-anexo">
+			<div class="form-row">
+				<div class="form-group">
+					<label for="filtroAnexo">Filtrar por Anexo:</label>
+					<select id="filtroAnexo">
+						<option value="">Todos os anexos</option>
+						<option value="I">Anexo I - Comércio</option>
+						<option value="II">Anexo II - Indústria</option>
+						<option value="III">Anexo III - Locação/Serviços</option>
+						<option value="IV">Anexo IV - Serviços (§ 5o-C)</option>
+						<option value="V">Anexo V - Serviços (§ 5o-I)</option>
+					</select>
+				</div>
+				<button class="btn-secondary" id="aplicarFiltroAnexo"><i class="fas fa-filter"></i> Filtrar</button>
+			</div>
+		</div>
+		
+        <div class="faixas-cadastradas">
+            <h4><i class="fas fa-list"></i> Faixas Cadastradas</h4>
+            <div id="listaFaixasSimples" class="lista-parametros">
+                <!-- Faixas serão carregadas aqui -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Conteúdo do Lucro Presumido -->
+    <div class="sub-tab-content" id="presumidoTab">
+        <h3><i class="fas fa-calculator"></i> Configuração do Lucro Presumido</h3>
+        
+        <div class="param-info">
+            <p>Configure as alíquotas e presunções do Lucro Presumido.</p>
+            <button class="btn-secondary" id="novaConfigPresumido"><i class="fas fa-plus"></i> Nova Configuração</button>
+        </div>
+        
+        <form id="formConfigPresumido">
+            <input type="hidden" id="configPresumidoId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="configNome">Nome da Configuração:</label>
+                    <input type="text" id="configNome" placeholder="Ex: Padrão 2024" required>
+                </div>
+                <div class="form-group">
+                    <label for="configAtiva">Status:</label>
+                    <select id="configAtiva" required>
+                        <option value="true">Ativa</option>
+                        <option value="false">Inativa</option>
+                    </select>
+                </div>
+            </div>
+            
+            <h4>Alíquotas Base (%)</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="presumidoIRPJ">IRPJ:</label>
+                    <input type="number" id="presumidoIRPJ" step="0.01" min="0" max="100" value="15" required>
+                </div>
+                <div class="form-group">
+                    <label for="presumidoIRPJAdicional">IRPJ Adicional (% sobre excesso):</label>
+                    <input type="number" id="presumidoIRPJAdicional" step="0.01" min="0" max="100" value="10" required>
+                </div>
+                <div class="form-group">
+                    <label for="presumidoCSLL">CSLL:</label>
+                    <input type="number" id="presumidoCSLL" step="0.01" min="0" max="100" value="9" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="presumidoPIS">PIS (%):</label>
+                    <input type="number" id="presumidoPIS" step="0.01" min="0" max="100" value="0.65" required>
+                </div>
+                <div class="form-group">
+                    <label for="presumidoCOFINS">COFINS (%):</label>
+                    <input type="number" id="presumidoCOFINS" step="0.01" min="0" max="100" value="3" required>
+                </div>
+                <div class="form-group">
+                    <label for="presumidoLimiteAdicional">Limite para Adicional IRPJ (R$/mês):</label>
+                    <input type="number" id="presumidoLimiteAdicional" step="0.01" min="0" value="20000" required>
+                </div>
+            </div>
+            
+            <h4>Presunção de Lucro (%)</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="presuncaoServicos">Serviços:</label>
+                    <input type="number" id="presuncaoServicos" step="0.01" min="0" max="100" value="8" required>
+                </div>
+                <div class="form-group">
+                    <label for="presuncaoComercio">Comércio:</label>
+                    <input type="number" id="presuncaoComercio" step="0.01" min="0" max="100" value="8" required>
+                </div>
+                <div class="form-group">
+                    <label for="presuncaoIndustria">Indústria:</label>
+                    <input type="number" id="presuncaoIndustria" step="0.01" min="0" max="100" value="8" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Salvar Configuração</button>
+            <button type="button" class="btn-secondary" id="limparConfigPresumido"><i class="fas fa-broom"></i> Limpar</button>
+        </form>
+        
+        <div class="configs-cadastradas">
+            <h4><i class="fas fa-list"></i> Configurações Cadastradas</h4>
+            <div id="listaConfigsPresumido" class="lista-parametros">
+                <!-- Configurações serão carregadas aqui -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Conteúdo do Lucro Real -->
+    <div class="sub-tab-content" id="realTab">
+        <h3><i class="fas fa-balance-scale"></i> Configuração do Lucro Real</h3>
+        
+        <div class="param-info">
+            <p>Configure as alíquotas do Lucro Real.</p>
+            <button class="btn-secondary" id="novaConfigReal"><i class="fas fa-plus"></i> Nova Configuração</button>
+        </div>
+        
+        <form id="formConfigReal">
+            <input type="hidden" id="configRealId">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="realNome">Nome da Configuração:</label>
+                    <input type="text" id="realNome" placeholder="Ex: Padrão 2024" required>
+                </div>
+                <div class="form-group">
+                    <label for="realAtiva">Status:</label>
+                    <select id="realAtiva" required>
+                        <option value="true">Ativa</option>
+                        <option value="false">Inativa</option>
+                    </select>
+                </div>
+            </div>
+            
+            <h4>Alíquotas (%)</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="realIRPJ">IRPJ:</label>
+                    <input type="number" id="realIRPJ" step="0.01" min="0" max="100" value="15" required>
+                </div>
+                <div class="form-group">
+                    <label for="realIRPJAdicional">IRPJ Adicional (% sobre excesso):</label>
+                    <input type="number" id="realIRPJAdicional" step="0.01" min="0" max="100" value="10" required>
+                </div>
+                <div class="form-group">
+                    <label for="realCSLL">CSLL:</label>
+                    <input type="number" id="realCSLL" step="0.01" min="0" max="100" value="9" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="realPIS">PIS (%):</label>
+                    <input type="number" id="realPIS" step="0.01" min="0" max="100" value="1.65" required>
+                </div>
+                <div class="form-group">
+                    <label for="realCOFINS">COFINS (%):</label>
+                    <input type="number" id="realCOFINS" step="0.01" min="0" max="100" value="7.6" required>
+                </div>
+                <div class="form-group">
+                    <label for="realLimiteAdicional">Limite para Adicional IRPJ (R$/mês):</label>
+                    <input type="number" id="realLimiteAdicional" step="0.01" min="0" value="20000" required>
+                </div>
+            </div>
+            
+            <h4>Outras Configurações</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="realINSSPatronal">INSS Patronal (%):</label>
+                    <input type="number" id="realINSSPatronal" step="0.01" min="0" max="100" value="20" required>
+                </div>
+                <div class="form-group">
+                    <label for="realIRRFRetido">IRRF Retido na Fonte (%):</label>
+                    <input type="number" id="realIRRFRetido" step="0.01" min="0" max="100" value="1.5">
+                </div>
+                <div class="form-group">
+                    <label for="realCSLLAdicional">CSLL Adicional (%):</label>
+                    <input type="number" id="realCSLLAdicional" step="0.01" min="0" max="100" value="0">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Salvar Configuração</button>
+            <button type="button" class="btn-secondary" id="limparConfigReal"><i class="fas fa-broom"></i> Limpar</button>
+        </form>
+        
+        <div class="configs-cadastradas">
+            <h4><i class="fas fa-list"></i> Configurações Cadastradas</h4>
+            <div id="listaConfigsReal" class="lista-parametros">
+                <!-- Configurações serão carregadas aqui -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Histórico de Parametrização -->
+    <div class="sub-tab-content" id="historico-paramTab">
+        <h3><i class="fas fa-history"></i> Histórico de Alterações</h3>
+        
+        <div class="filtros-historicos">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="filtroTipoParam">Filtrar por Tipo:</label>
+                    <select id="filtroTipoParam">
+                        <option value="">Todos os tipos</option>
+                        <option value="simples">Simples Nacional</option>
+                        <option value="presumido">Lucro Presumido</option>
+                        <option value="real">Lucro Real</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filtroDataParam">Filtrar por Data:</label>
+                    <input type="date" id="filtroDataParam">
+                </div>
+                <div class="form-group">
+                    <label for="filtroUsuarioParam">Filtrar por Usuário:</label>
+                    <input type="text" id="filtroUsuarioParam" placeholder="Nome do usuário">
+                </div>
+            </div>
+            <button class="btn-primary" id="aplicarFiltroHistorico"><i class="fas fa-filter"></i> Aplicar Filtros</button>
+            <button class="btn-secondary" id="limparFiltroHistorico"><i class="fas fa-broom"></i> Limpar Filtros</button>
+        </div>
+        
+        <div class="historico-parametrizacao">
+            <div id="listaHistoricoParam">
+                <!-- Histórico será carregado aqui -->
+            </div>
+        </div>
+    </div>
+</div>
+        </main>
+
+        <footer>
+            <p>Aplicativo para registro de vendas e cálculo de impostos | Funciona offline</p>
+            <p class="footer-info">Os dados são armazenados localmente no seu dispositivo</p>
+            <button class="btn-secondary" id="exportarDados"><i class="fas fa-download"></i> Exportar Dados</button>
+            <button class="btn-secondary" id="importarDados"><i class="fas fa-upload"></i> Importar Dados</button>
+            <button class="btn-secondary" id="limparTudo"><i class="fas fa-trash-alt"></i> Limpar Todos os Dados</button>
+        </footer>
+    </div>
+
+    <!-- Modal para confirmação -->
+    <div class="modal" id="confirmModal">
+        <div class="modal-content">
+            <h3 id="modalTitle"></h3>
+            <p id="modalMessage"></p>
+            <div class="modal-buttons">
+                <button class="btn-primary" id="modalConfirm">Confirmar</button>
+                <button class="btn-secondary" id="modalCancel">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input oculto para importação de arquivos -->
+    <input type="file" id="fileImport" style="display: none;" accept=".json">
+
+    <script src="script.js"></script>
+</body>
+</html>
