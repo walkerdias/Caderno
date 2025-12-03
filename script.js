@@ -1417,6 +1417,202 @@ function salvarConfigReal(e) {
     limparFormConfigReal();
 }
 
+// ========== FUNÇÕES DO LUCRO REAL ==========
+
+function novaConfigReal() {
+    limparFormConfigReal();
+    document.getElementById('realNome').focus();
+}
+
+function limparFormConfigReal() {
+    document.getElementById('formConfigReal').reset();
+    document.getElementById('configRealId').value = '';
+    document.getElementById('realAtiva').value = 'true';
+    
+    // Valores padrão para Lucro Real
+    document.getElementById('realIRPJ').value = '15';
+    document.getElementById('realIRPJAdicional').value = '10';
+    document.getElementById('realCSLL').value = '9';
+    document.getElementById('realPIS').value = '1.65';
+    document.getElementById('realCOFINS').value = '7.6';
+    document.getElementById('realLimiteAdicional').value = '20000';
+    document.getElementById('realINSSPatronal').value = '20';
+    document.getElementById('realIRRFRetido').value = '1.5';
+    document.getElementById('realCSLLAdicional').value = '0';
+}
+
+function carregarConfigsReal() {
+    const configs = JSON.parse(localStorage.getItem('paramConfigReal'));
+    const lista = document.getElementById('listaConfigsReal');
+    
+    if (!configs || configs.length === 0) {
+        lista.innerHTML = '<div class="placeholder"><p>Nenhuma configuração cadastrada.</p></div>';
+        return;
+    }
+    
+    lista.innerHTML = '';
+    
+    configs.forEach(config => {
+        const item = document.createElement('div');
+        item.className = 'item-parametro';
+        
+        item.innerHTML = `
+            <div class="param-header">
+                <h5>${config.nome}</h5>
+                <span class="param-status ${config.ativa ? 'status-ativa' : 'status-inativa'}">
+                    ${config.ativa ? 'ATIVA' : 'INATIVA'}
+                </span>
+            </div>
+            <div class="param-detalhes">
+                <div class="param-detalhe">
+                    <strong>IRPJ:</strong>
+                    ${config.aliquotas.IRPJ}%
+                </div>
+                <div class="param-detalhe">
+                    <strong>IRPJ Adicional:</strong>
+                    ${config.aliquotas.IRPJAdicional}%
+                </div>
+                <div class="param-detalhe">
+                    <strong>CSLL:</strong>
+                    ${config.aliquotas.CSLL}%
+                </div>
+                <div class="param-detalhe">
+                    <strong>PIS:</strong>
+                    ${config.aliquotas.PIS}%
+                </div>
+                <div class="param-detalhe">
+                    <strong>COFINS:</strong>
+                    ${config.aliquotas.COFINS}%
+                </div>
+                <div class="param-detalhe">
+                    <strong>INSS Patronal:</strong>
+                    ${config.aliquotas.INSSPatronal || 0}%
+                </div>
+                <div class="param-detalhe">
+                    <strong>Limite Adicional:</strong>
+                    R$ ${formatarMoeda(config.limites.adicionalIRPJ)}
+                </div>
+            </div>
+            <div class="param-acoes">
+                <button class="btn-secondary" onclick="editarConfigReal('${config.id}')">
+                    <i class="fas fa-edit"></i> Editar
+                </button>
+                <button class="btn-secondary" onclick="alternarStatusConfigReal('${config.id}')">
+                    <i class="fas fa-toggle-${config.ativa ? 'off' : 'on'}"></i> ${config.ativa ? 'Desativar' : 'Ativar'}
+                </button>
+            </div>
+        `;
+        
+        lista.appendChild(item);
+    });
+}
+
+function editarConfigReal(id) {
+    const configs = JSON.parse(localStorage.getItem('paramConfigReal'));
+    const config = configs.find(c => c.id === id);
+    
+    if (config) {
+        document.getElementById('configRealId').value = config.id;
+        document.getElementById('realNome').value = config.nome;
+        document.getElementById('realAtiva').value = config.ativa.toString();
+        
+        document.getElementById('realIRPJ').value = config.aliquotas.IRPJ;
+        document.getElementById('realIRPJAdicional').value = config.aliquotas.IRPJAdicional;
+        document.getElementById('realCSLL').value = config.aliquotas.CSLL;
+        document.getElementById('realPIS').value = config.aliquotas.PIS;
+        document.getElementById('realCOFINS').value = config.aliquotas.COFINS;
+        document.getElementById('realLimiteAdicional').value = config.limites.adicionalIRPJ;
+        
+        document.getElementById('realINSSPatronal').value = config.aliquotas.INSSPatronal;
+        document.getElementById('realIRRFRetido').value = config.aliquotas.IRRFRetido || '';
+        document.getElementById('realCSLLAdicional').value = config.aliquotas.CSLLAdicional || '';
+        
+        switchTab('parametrizacao');
+        switchSubTab('real');
+    }
+}
+
+function alternarStatusConfigReal(id) {
+    const configs = JSON.parse(localStorage.getItem('paramConfigReal'));
+    const index = configs.findIndex(c => c.id === id);
+    
+    if (index !== -1) {
+        const novaSituacao = !configs[index].ativa;
+        
+        mostrarModal('Alterar Status',
+            `Tem certeza que deseja ${novaSituacao ? 'ativar' : 'desativar'} esta configuração?`,
+            () => {
+                configs[index].ativa = novaSituacao;
+                configs[index].dataAtualizacao = new Date().toISOString();
+                
+                registrarHistorico('real', novaSituacao ? 'ATIVAÇÃO' : 'INATIVAÇÃO', configs[index]);
+                
+                localStorage.setItem('paramConfigReal', JSON.stringify(configs));
+                carregarConfigsReal();
+                mostrarMensagem(`Configuração ${novaSituacao ? 'ativada' : 'desativada'}!`);
+            }
+        );
+    }
+}
+
+function calcularImpostosLucroRealAtualizado(faturamento) {
+    const configs = JSON.parse(localStorage.getItem('paramConfigReal'));
+    const configAtiva = configs.find(c => c.ativa);
+    
+    if (!configAtiva) {
+        return calcularImpostosLucroReal(faturamento);
+    }
+    
+    const config = configAtiva;
+    
+    // Para simplificação, vamos considerar um lucro de 20% do faturamento
+    const margemLucro = 0.20;
+    const baseCalculo = faturamento * margemLucro;
+    
+    // Cálculo IRPJ
+    let irpj = baseCalculo * (config.aliquotas.IRPJ / 100);
+    
+    // Adicional de IRPJ
+    if (baseCalculo > config.limites.adicionalIRPJ) {
+        irpj += (baseCalculo - config.limites.adicionalIRPJ) * (config.aliquotas.IRPJAdicional / 100);
+    }
+    
+    // Cálculo CSLL
+    let csll = baseCalculo * (config.aliquotas.CSLL / 100);
+    
+    // CSLL Adicional se existir
+    if (config.aliquotas.CSLLAdicional && config.aliquotas.CSLLAdicional > 0) {
+        csll += baseCalculo * (config.aliquotas.CSLLAdicional / 100);
+    }
+    
+    // PIS/COFINS não cumulativos
+    const pis = faturamento * (config.aliquotas.PIS / 100);
+    const cofins = faturamento * (config.aliquotas.COFINS / 100);
+    
+    // INSS Patronal (sobre folha de pagamento)
+    // Para simplificação, vamos considerar 20% do faturamento como folha
+    const inssPatronal = (faturamento * 0.20) * (config.aliquotas.INSSPatronal / 100);
+    
+    // IRRF Retido na fonte
+    const irrfRetido = faturamento * ((config.aliquotas.IRRFRetido || 0) / 100);
+    
+    const totalImpostos = irpj + csll + pis + cofins + inssPatronal + irrfRetido;
+    
+    return {
+        regime: 'Lucro Real',
+        config: config.nome,
+        irpj: irpj,
+        csll: csll,
+        pis: pis,
+        cofins: cofins,
+        inssPatronal: inssPatronal,
+        irrfRetido: irrfRetido,
+        valorImposto: totalImpostos,
+        baseCalculo: baseCalculo,
+        margemLucro: '20%'
+    };
+}
+
 // ... funções similares para Lucro Real (novaConfigReal, limparFormConfigReal, carregarConfigsReal, editarConfigReal)
 
 // ========== HISTÓRICO DE PARAMETRIZAÇÃO ==========
