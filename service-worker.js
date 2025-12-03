@@ -16,7 +16,7 @@ const CACHE_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
-// Instalação do Service Worker
+// Instalação do Service Worker - CORRIGIDA
 self.addEventListener('install', event => {
   console.log('[Service Worker] Instalando...');
   
@@ -24,7 +24,23 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('[Service Worker] Armazenando arquivos em cache');
-        return cache.addAll(CACHE_ASSETS);
+        // Usar addAll com fallback para evitar falhas de um único arquivo
+        return Promise.all(
+          CACHE_ASSETS.map(url => {
+            return fetch(url)
+              .then(response => {
+                if (response.ok) {
+                  return cache.put(url, response.clone());
+                }
+                console.warn(`[Service Worker] Ignorando: ${url} (status: ${response.status})`);
+                return Promise.resolve();
+              })
+              .catch(error => {
+                console.warn(`[Service Worker] Falha ao armazenar ${url}:`, error);
+                return Promise.resolve(); // Continuar mesmo com falhas
+              });
+          })
+        );
       })
       .then(() => {
         console.log('[Service Worker] Instalação concluída');
@@ -32,6 +48,8 @@ self.addEventListener('install', event => {
       })
       .catch(error => {
         console.error('[Service Worker] Erro durante a instalação:', error);
+        // Continuar mesmo com erro
+        return self.skipWaiting();
       })
   );
 });
