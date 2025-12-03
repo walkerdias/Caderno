@@ -744,6 +744,96 @@ function restaurarFormularioSituacao() {
     document.getElementById('atividadesAnexo').value = '';
 }
 
+// Função para debug - verificar todas as situações de uma empresa
+function verificarSituacoesEmpresa(cnpjEmpresa) {
+    const situacoes = JSON.parse(localStorage.getItem('situacoes'));
+    const situacoesEmpresa = situacoes.filter(s => s.cnpjEmpresa === cnpjEmpresa);
+    
+    console.group('Verificação de Situações da Empresa');
+    console.log('CNPJ:', cnpjEmpresa);
+    console.log('Total de situações:', situacoesEmpresa.length);
+    
+    situacoesEmpresa.forEach((situacao, index) => {
+        console.log(`Situação ${index + 1}:`, {
+            id: situacao.id,
+            data: situacao.dataSituacao,
+            dataFormatada: formatarData(situacao.dataSituacao),
+            tributacao: situacao.tributacao,
+            anexo: situacao.anexo
+        });
+    });
+    
+    // Verificar duplicidades
+    const datas = situacoesEmpresa.map(s => s.dataSituacao);
+    const duplicados = datas.filter((data, index) => datas.indexOf(data) !== index);
+    
+    if (duplicados.length > 0) {
+        console.error('DATAS DUPLICADAS ENCONTRADAS:', duplicados);
+    } else {
+        console.log('Nenhuma data duplicada encontrada.');
+    }
+    
+    console.groupEnd();
+}
+
+function verificarTodasSituacoes() {
+    const clientes = JSON.parse(localStorage.getItem('clientes'));
+    const situacoes = JSON.parse(localStorage.getItem('situacoes'));
+    
+    console.group('VERIFICAÇÃO COMPLETA DO SISTEMA');
+    
+    let problemas = [];
+    
+    clientes.forEach(cliente => {
+        const situacoesCliente = situacoes.filter(s => s.cnpjEmpresa === cliente.cnpj);
+        
+        // Verificar datas duplicadas
+        const datas = situacoesCliente.map(s => s.dataSituacao);
+        const datasUnicas = [...new Set(datas)];
+        
+        if (datas.length !== datasUnicas.length) {
+            problemas.push({
+                empresa: cliente.nomeFantasia,
+                problema: 'Datas duplicadas',
+                situacoes: situacoesCliente.length
+            });
+        }
+        
+        // Verificar datas anteriores à abertura
+        const dataAbertura = new Date(cliente.dataAbertura);
+        dataAbertura.setHours(0, 0, 0, 0);
+        
+        situacoesCliente.forEach(situacao => {
+            const dataSituacao = new Date(situacao.dataSituacao);
+            dataSituacao.setHours(0, 0, 0, 0);
+            
+            if (dataSituacao < dataAbertura) {
+                problemas.push({
+                    empresa: cliente.nomeFantasia,
+                    problema: `Data anterior à abertura: ${formatarData(situacao.dataSituacao)} (Abertura: ${formatarData(cliente.dataAbertura)})`,
+                    situacao: situacao
+                });
+            }
+        });
+    });
+    
+    if (problemas.length === 0) {
+        console.log('✓ Nenhum problema encontrado!');
+        mostrarMensagem('Verificação concluída: Nenhum problema encontrado!');
+    } else {
+        console.error('⚠ PROBLEMAS ENCONTRADOS:', problemas);
+        
+        let mensagem = `Foram encontrados ${problemas.length} problema(s):\n\n`;
+        problemas.forEach((p, i) => {
+            mensagem += `${i + 1}. ${p.empresa}: ${p.problema}\n`;
+        });
+        
+        mostrarModal('Problemas Encontrados', mensagem);
+    }
+    
+    console.groupEnd();
+}
+
 // ========== MÁSCARAS PARA OS CAMPOS ==========
 function formatarCNPJInput(e) {
     const input = e.target;
