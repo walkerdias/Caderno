@@ -10,7 +10,6 @@ const CACHE_ASSETS = [
   './manifest.json',
   './icons/icon-72x72.png',
   './icons/icon-96x96.png',
-  './icons/icon-128x128.png',
   './icons/icon-192x192.png',
   './icons/icon-512x512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
@@ -209,4 +208,5 @@ self.addEventListener('notificationclick', event => {
         }
       })
   );
+
 });
